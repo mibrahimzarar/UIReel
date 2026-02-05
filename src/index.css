@@ -1,0 +1,164 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: hsl(225 15% 8%);
+  --color-foreground: hsl(0 0% 98%);
+
+  --color-primary: hsl(217.2 91.2% 59.8%);
+  --color-primary-foreground: hsl(222.2 47.4% 11.2%);
+
+  --color-secondary: hsl(225 12% 18%);
+  --color-secondary-foreground: hsl(0 0% 98%);
+
+  --color-muted: hsl(225 10% 22%);
+  --color-muted-foreground: hsl(225 8% 55%);
+
+  --color-accent: hsl(225 15% 25%);
+  --color-accent-foreground: hsl(0 0% 98%);
+
+  --color-border: hsl(225 10% 20%);
+
+  --radius: 0.75rem;
+}
+
+/* Import Inter font */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+html {
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-white/20 rounded-full hover:bg-white/30 transition-colors;
+}
+
+/* Hide scrollbar for clean look but keep functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Premium Button Styles */
+.btn-primary {
+  @apply px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm;
+  @apply hover:bg-primary/90 active:scale-[0.98] transition-all duration-200;
+  @apply shadow-lg shadow-primary/25;
+}
+
+.btn-secondary {
+  @apply px-4 py-2.5 rounded-xl bg-white/10 text-white font-medium text-sm;
+  @apply hover:bg-white/15 active:scale-[0.98] transition-all duration-200;
+  @apply border border-white/10;
+}
+
+.btn-ghost {
+  @apply px-3 py-2 rounded-lg text-white/70 font-medium text-sm;
+  @apply hover:bg-white/10 hover:text-white active:scale-[0.98] transition-all duration-200;
+}
+
+/* Premium Input Styles */
+.input {
+  @apply w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10;
+  @apply text-white placeholder:text-white/40 text-sm;
+  @apply focus:outline-none focus:border-primary/50 focus:bg-white/8 transition-all duration-200;
+}
+
+.input-sm {
+  @apply w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10;
+  @apply text-white placeholder:text-white/40 text-sm;
+  @apply focus:outline-none focus:border-primary/50 focus:bg-white/8 transition-all duration-200;
+}
+
+/* Card Styles */
+.card {
+  @apply rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm;
+}
+
+.card-hover {
+  @apply rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm;
+  @apply hover:bg-white/8 hover:border-white/15 transition-all duration-300;
+}
+
+/* Section Styles */
+.section {
+  @apply space-y-3 p-4;
+}
+
+.section-title {
+  @apply text-xs font-semibold uppercase tracking-wider text-white/50;
+}
+
+/* Gradient Mesh Background */
+.gradient-mesh {
+  background:
+    radial-gradient(at 40% 20%, hsla(228, 30%, 15%, 0.8) 0px, transparent 50%),
+    radial-gradient(at 80% 0%, hsla(189, 30%, 10%, 0.6) 0px, transparent 50%),
+    radial-gradient(at 0% 50%, hsla(255, 30%, 12%, 0.5) 0px, transparent 50%);
+}
+
+/* Animated Gradient Border */
+.gradient-border {
+  position: relative;
+}
+
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.1));
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Subtle Stage Background */
+.bg-dots-pattern {
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Mobile Touch Improvements */
+@media (hover: none) and (pointer: coarse) {
+
+  .btn-primary,
+  .btn-secondary,
+  .btn-ghost {
+    @apply active:opacity-80;
+  }
+
+  button,
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Safe Area Support for Mobile */
+@supports(padding: max(0px)) {
+  .safe-area-inset-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+}
