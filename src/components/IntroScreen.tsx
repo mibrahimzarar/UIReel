@@ -16,10 +16,14 @@ export const IntroScreen = () => {
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_transparent_0%,_rgba(0,0,0,0.4)_100%)] pointer-events-none" />
 
             <motion.div
-                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                initial={{ opacity: 0, scale: 0.92, y: 30 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 1.1, filter: "blur(10px)" }}
-                transition={{ duration: 0.8, ease: "easeOut" }}
+                transition={{
+                    duration: 1,
+                    ease: [0.22, 1, 0.36, 1],
+                    opacity: { duration: 0.8 },
+                    scale: { duration: 1.1, ease: [0.22, 1, 0.36, 1] }
+                }}
                 className={`z-10 flex flex-col items-center ${isVertical ? 'gap-6 justify-center h-full pb-0' : 'gap-6'}`}
             >
                 {/* Logo Container */}
