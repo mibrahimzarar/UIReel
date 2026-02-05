@@ -53,6 +53,26 @@ interface AppState {
 
     resetScrollSignal: number
     triggerReset: () => void
+
+    // Fade Effects
+    fadeEffect: 'none' | 'fadeIn' | 'fadeOut'
+    setFadeEffect: (effect: 'none' | 'fadeIn' | 'fadeOut') => void
+
+    // Intro Settings
+    showIntro: boolean
+    introLogo: string | null
+    introTitle: string
+    introSubtitle: string
+    setShowIntro: (show: boolean) => void
+    setIntroLogo: (logo: string | null) => void
+    setIntroTitle: (text: string) => void
+    setIntroSubtitle: (text: string) => void
+
+    // Outro Settings
+    showOutro: boolean
+    outroQrCode: string | null
+    setShowOutro: (show: boolean) => void
+    setOutroQrCode: (qr: string | null) => void
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -67,6 +87,16 @@ export const useStore = create<AppState>((set) => ({
         scrollSpeed: 20
     }],
     activeSceneId: 'default',
+
+    // Intro Settings Initial State
+    showIntro: false,
+    introLogo: null,
+    introTitle: "Welcome",
+    introSubtitle: "Discover the amazing features",
+
+    // Outro Settings Initial State
+    showOutro: false,
+    outroQrCode: null,
 
     addScene: () => set((state) => {
         const newId = crypto.randomUUID()
@@ -97,44 +127,73 @@ export const useStore = create<AppState>((set) => ({
 
     setActiveScene: (activeSceneId) => set({ activeSceneId }),
 
-    // Proxy Actions -- modify the ACTIVE scene
-    addScreenshots: (urls) => set((state) => ({
-        scenes: state.scenes.map(s => s.id === state.activeSceneId
-            ? { ...s, screenshots: [...s.screenshots, ...urls] }
-            : s
-        )
-    })),
+    // Helper to resolve target scene ID
+    // INTRO -> First Scene
+    // OUTRO -> Last Scene
+    // Scene ID -> Scene ID
 
-    removeScreenshot: (index) => set((state) => ({
-        scenes: state.scenes.map(s => s.id === state.activeSceneId
-            ? { ...s, screenshots: s.screenshots.filter((_, i) => i !== index) }
-            : s
-        )
-    })),
+    // Proxy Actions -- modify the ACTIVE scene (or mapped scene)
+    addScreenshots: (urls) => set((state) => {
+        const targetId = state.activeSceneId === 'INTRO' ? state.scenes[0].id : state.activeSceneId === 'OUTRO' ? state.scenes[state.scenes.length - 1].id : state.activeSceneId
+        return {
+            scenes: state.scenes.map(s => s.id === targetId
+                ? { ...s, screenshots: [...s.screenshots, ...urls] }
+                : s
+            )
+        }
+    }),
 
-    reorderScreenshots: (newOrder) => set((state) => ({
-        scenes: state.scenes.map(s => s.id === state.activeSceneId ? { ...s, screenshots: newOrder } : s)
-    })),
+    removeScreenshot: (index) => set((state) => {
+        const targetId = state.activeSceneId === 'INTRO' ? state.scenes[0].id : state.activeSceneId === 'OUTRO' ? state.scenes[state.scenes.length - 1].id : state.activeSceneId
+        return {
+            scenes: state.scenes.map(s => s.id === targetId
+                ? { ...s, screenshots: s.screenshots.filter((_, i) => i !== index) }
+                : s
+            )
+        }
+    }),
 
-    updateHeadline: (headline) => set((state) => ({
-        scenes: state.scenes.map(s => s.id === state.activeSceneId ? { ...s, headline } : s)
-    })),
+    reorderScreenshots: (newOrder) => set((state) => {
+        const targetId = state.activeSceneId === 'INTRO' ? state.scenes[0].id : state.activeSceneId === 'OUTRO' ? state.scenes[state.scenes.length - 1].id : state.activeSceneId
+        return {
+            scenes: state.scenes.map(s => s.id === targetId ? { ...s, screenshots: newOrder } : s)
+        }
+    }),
 
-    updateSubtitle: (subtitle) => set((state) => ({
-        scenes: state.scenes.map(s => s.id === state.activeSceneId ? { ...s, subtitle } : s)
-    })),
+    updateHeadline: (headline) => set((state) => {
+        const targetId = state.activeSceneId === 'INTRO' ? state.scenes[0].id : state.activeSceneId === 'OUTRO' ? state.scenes[state.scenes.length - 1].id : state.activeSceneId
+        return {
+            scenes: state.scenes.map(s => s.id === targetId ? { ...s, headline } : s)
+        }
+    }),
 
-    setPhoneColor: (phoneColor) => set((state) => ({
-        scenes: state.scenes.map(s => s.id === state.activeSceneId ? { ...s, phoneColor } : s)
-    })),
+    updateSubtitle: (subtitle) => set((state) => {
+        const targetId = state.activeSceneId === 'INTRO' ? state.scenes[0].id : state.activeSceneId === 'OUTRO' ? state.scenes[state.scenes.length - 1].id : state.activeSceneId
+        return {
+            scenes: state.scenes.map(s => s.id === targetId ? { ...s, subtitle } : s)
+        }
+    }),
 
-    setBackground: (background) => set((state) => ({
-        scenes: state.scenes.map(s => s.id === state.activeSceneId ? { ...s, background } : s)
-    })),
+    setPhoneColor: (phoneColor) => set((state) => {
+        const targetId = state.activeSceneId === 'INTRO' ? state.scenes[0].id : state.activeSceneId === 'OUTRO' ? state.scenes[state.scenes.length - 1].id : state.activeSceneId
+        return {
+            scenes: state.scenes.map(s => s.id === targetId ? { ...s, phoneColor } : s)
+        }
+    }),
 
-    setScrollSpeed: (scrollSpeed) => set((state) => ({
-        scenes: state.scenes.map(s => s.id === state.activeSceneId ? { ...s, scrollSpeed } : s)
-    })),
+    setBackground: (background) => set((state) => {
+        const targetId = state.activeSceneId === 'INTRO' ? state.scenes[0].id : state.activeSceneId === 'OUTRO' ? state.scenes[state.scenes.length - 1].id : state.activeSceneId
+        return {
+            scenes: state.scenes.map(s => s.id === targetId ? { ...s, background } : s)
+        }
+    }),
+
+    setScrollSpeed: (scrollSpeed) => set((state) => {
+        const targetId = state.activeSceneId === 'INTRO' ? state.scenes[0].id : state.activeSceneId === 'OUTRO' ? state.scenes[state.scenes.length - 1].id : state.activeSceneId
+        return {
+            scenes: state.scenes.map(s => s.id === targetId ? { ...s, scrollSpeed } : s)
+        }
+    }),
 
     // Animation
     isPlaying: false,
@@ -154,4 +213,18 @@ export const useStore = create<AppState>((set) => ({
 
     resetScrollSignal: 0,
     triggerReset: () => set((state) => ({ resetScrollSignal: state.resetScrollSignal + 1 })),
+
+    // Fade Initial State
+    fadeEffect: 'none',
+    setFadeEffect: (fadeEffect) => set({ fadeEffect }),
+
+    // Intro Actions
+    setShowIntro: (show) => set({ showIntro: show }),
+    setIntroLogo: (logo) => set({ introLogo: logo }),
+    setIntroTitle: (text) => set({ introTitle: text }),
+    setIntroSubtitle: (text) => set({ introSubtitle: text }),
+
+    // Outro Actions
+    setShowOutro: (show) => set({ showOutro: show }),
+    setOutroQrCode: (qr) => set({ outroQrCode: qr }),
 }))

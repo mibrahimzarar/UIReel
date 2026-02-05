@@ -4,9 +4,11 @@ import { PhoneMockup } from './PhoneMockup'
 import { clsx } from 'clsx'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useState } from 'react'
+import { IntroScreen } from './IntroScreen'
+import { OutroScreen } from './OutroScreen'
 
 export const Layout = () => {
-    const { scenes, activeSceneId, lockedDimensions, aspectRatio } = useStore()
+    const { scenes, activeSceneId, lockedDimensions, aspectRatio, fadeEffect } = useStore()
     const activeScene = scenes.find(s => s.id === activeSceneId) || scenes[0]
     const { headline, subtitle, background } = activeScene
 
@@ -160,63 +162,105 @@ export const Layout = () => {
 
                     {/* Scene Transition Container */}
                     <AnimatePresence mode="wait" initial={false}>
-                        <motion.div
-                            key={activeSceneId}
-                            initial={{ opacity: 0, scale: 0.98 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.98 }}
-                            transition={{
-                                duration: 0.4,
-                                ease: [0.4, 0.0, 0.2, 1],
-                                opacity: { duration: 0.2, ease: "easeOut" }
-                            }}
-                            className={clsx(
-                                "w-full h-full flex relative",
-                                aspectRatio === '9:16'
-                                    ? (hasText ? "flex-col items-center justify-center -translate-y-12 md:-translate-y-16 gap-3 md:gap-4" : "flex-col items-center justify-center")
-                                    : (hasText ? "flex-col md:flex-row items-center justify-center p-3 md:p-8 gap-0 md:gap-0" : "flex-row items-center justify-center p-4 md:p-8")
-                            )}
-                        >
+                        {activeSceneId === 'INTRO' ? (
+                            <motion.div
+                                key="intro"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.5 }}
+                                className="w-full h-full absolute inset-0 z-20"
+                            >
+                                <IntroScreen />
+                            </motion.div>
+                        ) : activeSceneId === 'OUTRO' ? (
+                            <motion.div
+                                key="outro"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.5 }}
+                                className="w-full h-full absolute inset-0 z-20"
+                            >
+                                <OutroScreen />
+                            </motion.div>
+                        ) : (
+                            <motion.div
+                                key={activeSceneId}
+                                initial={{ opacity: 0, scale: 0.98 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.98 }}
+                                transition={{
+                                    duration: 0.4,
+                                    ease: [0.4, 0.0, 0.2, 1],
+                                    opacity: { duration: 0.2, ease: "easeOut" }
+                                }}
+                                className={clsx(
+                                    "w-full h-full flex relative",
+                                    aspectRatio === '9:16'
+                                        ? (hasText ? "flex-col items-center justify-center -translate-y-12 md:-translate-y-16 gap-3 md:gap-4" : "flex-col items-center justify-center")
+                                        : (hasText ? "flex-col md:flex-row items-center justify-center p-3 md:p-8 gap-0 md:gap-0" : "flex-row items-center justify-center p-4 md:p-8")
+                                )}
+                            >
 
-                            {/* Text Area */}
-                            {hasText && (
+                                {/* Text Area */}
+                                {hasText && (
+                                    <div className={clsx(
+                                        "z-10 flex flex-col justify-center",
+                                        aspectRatio === '1:1'
+                                            ? "order-2 md:order-1 text-center md:text-left items-center md:items-start w-full md:w-[290px] px-4 md:px-0 md:pr-4 md:ml-12 space-y-1"
+                                            : "order-2 text-center items-center px-3 md:px-4 max-w-[85%] md:max-w-[90%] -mt-24 md:-mt-32 space-y-1.5 md:space-y-2"
+                                    )}>
+                                        {headline && (
+                                            <h1 className={clsx(
+                                                "font-bold leading-tight tracking-tight drop-shadow-lg",
+                                                aspectRatio === '1:1' ? "text-base md:text-3xl" : "text-lg md:text-2xl"
+                                            )}>
+                                                {headline}
+                                            </h1>
+                                        )}
+                                        {subtitle && (
+                                            <p className={clsx(
+                                                "font-medium text-white/80 drop-shadow-md",
+                                                aspectRatio === '1:1' ? "text-[10px] md:text-base" : "text-[11px] md:text-sm"
+                                            )}>
+                                                {subtitle}
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Phone Mockup */}
                                 <div className={clsx(
-                                    "z-10 flex flex-col justify-center",
+                                    "relative z-0 transition-all duration-500 flex items-center justify-center",
                                     aspectRatio === '1:1'
-                                        ? "order-2 md:order-1 text-center md:text-left items-center md:items-start w-full md:w-[290px] px-4 md:px-0 md:pr-4 md:ml-12 space-y-1"
-                                        : "order-2 text-center items-center px-3 md:px-4 max-w-[85%] md:max-w-[90%] -mt-24 md:-mt-32 space-y-1.5 md:space-y-2"
+                                        ? (hasText ? "order-1 md:order-2 flex-shrink-0 scale-[0.5] md:scale-[0.7]" : "scale-[0.6] md:scale-[0.85]")
+                                        : "order-1 flex-1 scale-[0.38] md:scale-[0.55]"
                                 )}>
-                                    {headline && (
-                                        <h1 className={clsx(
-                                            "font-bold leading-tight tracking-tight drop-shadow-lg",
-                                            aspectRatio === '1:1' ? "text-base md:text-3xl" : "text-lg md:text-2xl"
-                                        )}>
-                                            {headline}
-                                        </h1>
-                                    )}
-                                    {subtitle && (
-                                        <p className={clsx(
-                                            "font-medium text-white/80 drop-shadow-md",
-                                            aspectRatio === '1:1' ? "text-[10px] md:text-base" : "text-[11px] md:text-sm"
-                                        )}>
-                                            {subtitle}
-                                        </p>
-                                    )}
+                                    <PhoneMockup />
                                 </div>
-                            )}
 
-                            {/* Phone Mockup */}
-                            <div className={clsx(
-                                "relative z-0 transition-all duration-500 flex items-center justify-center",
-                                aspectRatio === '1:1'
-                                    ? (hasText ? "order-1 md:order-2 flex-shrink-0 scale-[0.5] md:scale-[0.7]" : "scale-[0.6] md:scale-[0.85]")
-                                    : "order-1 flex-1 scale-[0.38] md:scale-[0.55]"
-                            )}>
-                                <PhoneMockup />
-                            </div>
-
-                        </motion.div>
+                            </motion.div>
+                        )}
                     </AnimatePresence>
+
+                    {/* FADE OVERLAY - Global Transition Effect */}
+                    {/* FADE OVERLAY - Global Transition Effect */}
+                    <motion.div
+                        key="fade-overlay"
+                        className="absolute inset-0 bg-black z-50 pointer-events-none"
+                        animate={{
+                            opacity: fadeEffect === 'fadeIn' ? 0 :
+                                fadeEffect === 'fadeOut' ? 1 :
+                                    0
+                        }}
+                        initial={false}
+                        transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }} // Smooth cubic-bezier
+                        style={{
+                            // Force opacity 1 initially ONLY if we are starting a fade IN
+                            opacity: fadeEffect === 'fadeIn' ? 1 : undefined
+                        }}
+                    />
                 </div>
 
                 {/* Mobile: Quick Action FAB */}
@@ -230,7 +274,7 @@ export const Layout = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                 </button>
-            </main>
-        </div>
+            </main >
+        </div >
     )
 }

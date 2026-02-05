@@ -21,7 +21,10 @@ export const ControlPanel = ({ onClose: _onClose }: ControlPanelProps) => {
         aspectRatio, setAspectRatio,
         isPlaying, setIsPlaying,
         setBackground,
-        triggerReset
+        triggerReset,
+        // Intro/Outro State
+        showIntro, setShowIntro, introLogo, setIntroLogo, introTitle, setIntroTitle, introSubtitle, setIntroSubtitle,
+        showOutro, setShowOutro, outroQrCode, setOutroQrCode
     } = useStore()
 
     const activeScene = scenes.find(s => s.id === activeSceneId) || scenes[0]
@@ -76,10 +79,10 @@ export const ControlPanel = ({ onClose: _onClose }: ControlPanelProps) => {
                 mimeType = 'video/webm'
             }
 
-            // High bitrate for "perfect" quality (25 Mbps)
+            // High bitrate for "perfect" quality (50 Mbps)
             const recorder = new MediaRecorder(stream, {
                 mimeType,
-                videoBitsPerSecond: 25000000
+                videoBitsPerSecond: 50000000
             })
             mediaRecorderRef.current = recorder
 
@@ -102,9 +105,14 @@ export const ControlPanel = ({ onClose: _onClose }: ControlPanelProps) => {
             // Trigger Automation Flow
             useStore.setState({ isExporting: true, isPlaying: false, animationFinished: false })
 
-            // Reset to First Scene for the recording sequence
+            // Start with FADE IN (Black -> Content) from Intro
+            useStore.getState().setFadeEffect('fadeIn')
+
+            // Reset to First Scene OR Intro
             const firstSceneId = useStore.getState().scenes[0].id
-            useStore.getState().setActiveScene(firstSceneId)
+            const shouldStartIntro = useStore.getState().showIntro
+
+            useStore.getState().setActiveScene(shouldStartIntro ? 'INTRO' : firstSceneId)
             useStore.getState().triggerReset()
 
             // Start animation slightly after recording starts to ensure frame capture
@@ -128,45 +136,115 @@ export const ControlPanel = ({ onClose: _onClose }: ControlPanelProps) => {
     // Watch for animation completion signal
     const { animationFinished, setAnimationFinished, setIsExporting } = useStore()
 
-    // SEQUENCE ENGINE
+    // SEQUENCE ENGINE: Timers for Static Scenes
     useEffect(() => {
-        if (animationFinished && isRecording) {
+        if (!isRecording) return
 
-            // Find current scene index
-            const currentIdx = scenes.findIndex(s => s.id === activeSceneId)
+        if (activeSceneId === 'INTRO') {
+            console.log('VideoSequence: Starting INTRO Timer (3000ms)')
+            const timer = setTimeout(() => {
+                console.log('VideoSequence: INTRO Timer Finished')
+                useStore.getState().setAnimationFinished(true)
+            }, 3000)
+            return () => clearTimeout(timer)
+        }
 
-            // Check if there are more scenes
-            if (currentIdx !== -1 && currentIdx < scenes.length - 1) {
-                // NEXT SCENE LOGIC
-                setAnimationFinished(false)
-                setIsPlaying(false) // Pause current
+        if (activeSceneId === 'OUTRO') {
+            console.log('VideoSequence: Starting OUTRO Timer (4000ms)')
+            const timer = setTimeout(() => {
+                console.log('VideoSequence: OUTRO Timer Finished')
+                useStore.getState().setAnimationFinished(true)
+            }, 4000)
+            return () => clearTimeout(timer)
+        }
+    }, [isRecording, activeSceneId])
 
-                // Wait for current scene to settle
-                setTimeout(() => {
-                    // Change scene (triggers exit → enter transition)
-                    const nextSceneId = scenes[currentIdx + 1].id
-                    setActiveScene(nextSceneId)
 
-                    // Wait for transition (0.4s + buffer)
-                    setTimeout(() => {
-                        triggerReset()
-                        setTimeout(() => {
-                            setIsPlaying(true)
-                        }, 100)
-                    }, 500)
+    // SEQUENCE ENGINE: Transition Orchestrator
+    useEffect(() => {
+        if (!isRecording || !animationFinished) return
 
-                }, 300)
+        console.log('VideoSequence: Processing Transition', { activeSceneId })
 
-            } else {
-                // SEQUENCE COMPLETE - No delay, stop immediately
+        // 1. Handle INTRO -> First Scene
+        if (activeSceneId === 'INTRO') {
+            setAnimationFinished(false)
+            setIsPlaying(false)
+
+            // Get first scene
+            const firstSceneId = scenes[0].id
+
+            // Transition
+            setActiveScene(firstSceneId)
+            triggerReset()
+
+            // Start Playing
+            setTimeout(() => {
+                setIsPlaying(true)
+                console.log('VideoSequence: Started Scene 1')
+            }, 500)
+            return
+        }
+
+        // 2. Handle OUTRO -> Finish
+        if (activeSceneId === 'OUTRO') {
+            console.log('VideoSequence: Fade Out Started')
+            useStore.getState().setFadeEffect('fadeOut')
+
+            // Wait for Fade Out (1s) before stopping
+            setTimeout(() => {
                 stopRegionRecording()
                 setIsExporting(false)
                 setAnimationFinished(false)
                 setIsPlaying(false)
-                useStore.getState().setLockedDimensions(null) // Unfreeze layout
+                useStore.getState().setLockedDimensions(null)
+                useStore.getState().setFadeEffect('none')
+                console.log('VideoSequence: Sequence Completed')
+            }, 1000)
+            return
+        }
+
+        // 3. Handle Normal Scenes
+        const currentIdx = scenes.findIndex(s => s.id === activeSceneId)
+
+        if (currentIdx !== -1 && currentIdx < scenes.length - 1) {
+            // Move to Next Scene
+            setAnimationFinished(false)
+            setIsPlaying(false)
+
+            setTimeout(() => {
+                const nextSceneId = scenes[currentIdx + 1].id
+                setActiveScene(nextSceneId)
+
+                setTimeout(() => {
+                    triggerReset()
+                    setTimeout(() => setIsPlaying(true), 100)
+                }, 500)
+            }, 300)
+
+        } else {
+            // Last Scene Finished -> Go to Outro OR Stop
+            setAnimationFinished(false)
+            setIsPlaying(false)
+
+            if (showOutro) {
+                setTimeout(() => {
+                    setActiveScene('OUTRO')
+                }, 500)
+            } else {
+                // Done (No Outro) -> Fade Out -> Stop
+                console.log('VideoSequence: Fade Out Started (No Outro)')
+                useStore.getState().setFadeEffect('fadeOut')
+
+                setTimeout(() => {
+                    stopRegionRecording()
+                    setIsExporting(false)
+                    useStore.getState().setLockedDimensions(null)
+                    useStore.getState().setFadeEffect('none')
+                }, 1000)
             }
         }
-    }, [animationFinished, isRecording, stopRegionRecording, setIsExporting, setAnimationFinished, setIsPlaying, scenes, activeSceneId, setActiveScene, triggerReset])
+    }, [isRecording, animationFinished, activeSceneId, scenes, showOutro, stopRegionRecording, setIsExporting, setAnimationFinished, setIsPlaying, setActiveScene, triggerReset])
 
     const onDrop = useCallback((acceptedFiles: File[]) => {
         const fileUrls = acceptedFiles.map(file => URL.createObjectURL(file))
@@ -188,74 +266,206 @@ export const ControlPanel = ({ onClose: _onClose }: ControlPanelProps) => {
                 <p className="text-sm text-muted-foreground">Customize your video export</p>
             </div>
 
-            {/* Scene Manager */}
-            <section className="space-y-3 p-4 bg-white/5 rounded-xl border border-white/10">
-                <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium flex items-center gap-2">
-                        Video Scenes
+            {/* Video Composition Section */}
+            <section className="space-y-4 p-4 bg-white/5 rounded-xl border border-white/10">
+                <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-bold flex items-center gap-2">
+                        Video Composition
                     </label>
-                    <button onClick={addScene} className="text-xs bg-primary px-2 py-1 rounded hover:bg-primary/90 transition">
-                        + Add Scene
-                    </button>
                 </div>
-                <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-                    {scenes.map((scene, idx) => (
-                        <button
-                            key={scene.id}
-                            onClick={() => setActiveScene(scene.id)}
-                            className={clsx(
-                                "flex-shrink-0 px-3 py-2 rounded-lg border text-xs transition-all relative group",
-                                activeSceneId === scene.id ? "bg-white text-black border-white" : "bg-black/40 border-white/10 hover:border-white/30"
-                            )}
+
+                {/* 1. Intro Toggle & Settings */}
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                        <span className="text-sm text-white/80">Intro Screen</span>
+                        <div
+                            onClick={() => setShowIntro(!showIntro)}
+                            className={clsx("w-10 h-5 rounded-full relative cursor-pointer transition-colors", showIntro ? "bg-primary" : "bg-white/20")}
                         >
-                            Scene {idx + 1}
-                            {scenes.length > 1 && (
-                                <span
-                                    onClick={(e) => { e.stopPropagation(); removeScene(scene.id) }}
-                                    className="ml-2 text-red-500 hover:text-red-700 font-bold"
-                                >×</span>
-                            )}
-                        </button>
-                    ))}
-                </div>
-            </section>
-
-            {/* Upload Section */}
-            <section className="space-y-3">
-                <label className="text-sm font-medium flex items-center gap-2">
-                    <Upload size={16} /> Screenshots
-                </label>
-
-                <div
-                    {...getRootProps()}
-                    className={clsx(
-                        "border-2 border-dashed border-white/10 rounded-xl p-8 text-center cursor-pointer transition-colors hover:border-primary/50 hover:bg-white/5",
-                        isDragActive && "border-primary bg-primary/10"
-                    )}
-                >
-                    <input {...getInputProps()} />
-                    <p className="text-sm text-muted-foreground">
-                        {isDragActive ? "Drop images here..." : "Drag & drop UI screenshots"}
-                    </p>
-                </div>
-
-                {/* Thumbnails */}
-                {screenshots.length > 0 && (
-                    <div className="grid grid-cols-4 gap-2 mt-2">
-                        {screenshots.map((src, idx) => (
-                            <div key={idx} className="relative group aspect-[9/16] rounded-md overflow-hidden border border-white/10">
-                                <img src={src} className="w-full h-full object-cover" alt="" />
-                                <button
-                                    onClick={() => removeScreenshot(idx)}
-                                    className="absolute top-1 right-1 bg-red-500/80 p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                                >
-                                    <X size={12} />
-                                </button>
-                            </div>
-                        ))}
+                            <div className={clsx("absolute top-1 w-3 h-3 rounded-full bg-white transition-all shadow-sm", showIntro ? "left-6" : "left-1")} />
+                        </div>
                     </div>
-                )}
+
+                    {showIntro && (
+                        <div className="space-y-3 pl-2 border-l-2 border-white/10 ml-1">
+                            {/* Logo Upload */}
+                            <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-lg bg-black/40 border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                    {introLogo ? <img src={introLogo} className="w-full h-full object-cover" /> : <Upload size={14} className="text-white/30" />}
+                                </div>
+                                <div className="flex-1">
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        id="intro-logo"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                            if (e.target.files?.[0]) {
+                                                setIntroLogo(URL.createObjectURL(e.target.files[0]))
+                                            }
+                                        }}
+                                    />
+                                    <label htmlFor="intro-logo" className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded cursor-pointer transition-colors">
+                                        Upload Logo
+                                    </label>
+                                </div>
+                            </div>
+                            <input
+                                value={introTitle}
+                                onChange={(e) => setIntroTitle(e.target.value)}
+                                placeholder="App Name"
+                                className="input-sm text-xs"
+                            />
+                            <input
+                                value={introSubtitle}
+                                onChange={(e) => setIntroSubtitle(e.target.value)}
+                                placeholder="Slogan / Tagline"
+                                className="input-sm text-xs"
+                            />
+                        </div>
+                    )}
+                </div>
+
+                <div className="w-full h-px bg-white/10 my-2" />
+
+                {/* 2. Scene Manager (Middle) */}
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                        <span className="text-sm text-white/80">Main Scenes</span>
+                        <button onClick={addScene} className="text-[10px] bg-white/10 px-2 py-1 rounded hover:bg-white/20 transition">
+                            + Add Scene
+                        </button>
+                    </div>
+                    <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                        {/* Intro Button Ref */}
+                        {showIntro && (
+                            <button
+                                onClick={() => setActiveScene('INTRO')}
+                                className={clsx(
+                                    "flex-shrink-0 px-3 py-2 rounded-lg border text-xs transition-all relative group font-semibold",
+                                    activeSceneId === 'INTRO' ? "bg-white text-black border-white" : "bg-blue-500/20 text-blue-200 border-blue-500/30 hover:border-blue-400"
+                                )}
+                            >
+                                Intro
+                            </button>
+                        )}
+
+                        {scenes.map((scene, idx) => (
+                            <button
+                                key={scene.id}
+                                onClick={() => setActiveScene(scene.id)}
+                                className={clsx(
+                                    "flex-shrink-0 px-3 py-2 rounded-lg border text-xs transition-all relative group",
+                                    activeSceneId === scene.id ? "bg-white text-black border-white" : "bg-black/40 border-white/10 hover:border-white/30"
+                                )}
+                            >
+                                Scene {idx + 1}
+                                {scenes.length > 1 && (
+                                    <span
+                                        onClick={(e) => { e.stopPropagation(); removeScene(scene.id) }}
+                                        className="ml-2 text-red-500 hover:text-red-700 font-bold"
+                                    >×</span>
+                                )}
+                            </button>
+                        ))}
+
+                        {/* Outro Button Ref */}
+                        {showOutro && (
+                            <button
+                                onClick={() => setActiveScene('OUTRO')}
+                                className={clsx(
+                                    "flex-shrink-0 px-3 py-2 rounded-lg border text-xs transition-all relative group font-semibold",
+                                    activeSceneId === 'OUTRO' ? "bg-white text-black border-white" : "bg-purple-500/20 text-purple-200 border-purple-500/30 hover:border-purple-400"
+                                )}
+                            >
+                                Outro
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Scene-specific Screenshots (Only show for standard scenes) */}
+                    {!['INTRO', 'OUTRO'].includes(activeSceneId) && (
+                        <div className="mt-4 pt-4 border-t border-white/10 space-y-3">
+                            <label className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-2">
+                                <Upload size={12} /> Screenshots for Scene {(scenes.findIndex(s => s.id === activeSceneId) !== -1 ? scenes.findIndex(s => s.id === activeSceneId) + 1 : '1')}
+                            </label>
+
+                            <div
+                                {...getRootProps()}
+                                className={clsx(
+                                    "border border-dashed border-white/10 rounded-lg p-6 text-center cursor-pointer transition-colors hover:border-primary/50 hover:bg-white/5",
+                                    isDragActive && "border-primary bg-primary/10"
+                                )}
+                            >
+                                <input {...getInputProps()} />
+                                <p className="text-xs text-muted-foreground">
+                                    {isDragActive ? "Drop images here..." : "Drag & drop screenshots for this scene"}
+                                </p>
+                            </div>
+
+                            {/* Thumbnails */}
+                            {screenshots.length > 0 && (
+                                <div className="grid grid-cols-4 gap-2">
+                                    {screenshots.map((src, idx) => (
+                                        <div key={idx} className="relative group aspect-[9/16] rounded-md overflow-hidden border border-white/10">
+                                            <img src={src} className="w-full h-full object-cover" alt="" />
+                                            <button
+                                                onClick={() => removeScreenshot(idx)}
+                                                className="absolute top-1 right-1 bg-red-500/80 p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                                            >
+                                                <X size={12} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                <div className="w-full h-px bg-white/10 my-2" />
+
+                {/* 3. Outro Toggle & Settings */}
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                        <span className="text-sm text-white/80">Outro Screen</span>
+                        <div
+                            onClick={() => setShowOutro(!showOutro)}
+                            className={clsx("w-10 h-5 rounded-full relative cursor-pointer transition-colors", showOutro ? "bg-primary" : "bg-white/20")}
+                        >
+                            <div className={clsx("absolute top-1 w-3 h-3 rounded-full bg-white transition-all shadow-sm", showOutro ? "left-6" : "left-1")} />
+                        </div>
+                    </div>
+
+                    {showOutro && (
+                        <div className="space-y-3 pl-2 border-l-2 border-white/10 ml-1">
+                            <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-lg bg-white flex items-center justify-center overflow-hidden flex-shrink-0">
+                                    {outroQrCode ? <img src={outroQrCode} className="w-full h-full object-cover" /> : <Settings size={14} className="text-black/30" />}
+                                </div>
+                                <div className="flex-1">
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        id="outro-qr"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                            if (e.target.files?.[0]) {
+                                                setOutroQrCode(URL.createObjectURL(e.target.files[0]))
+                                            }
+                                        }}
+                                    />
+                                    <label htmlFor="outro-qr" className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded cursor-pointer transition-colors">
+                                        Upload QR Code
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </section>
+
+
 
             <hr className="border-white/10" />
 
