@@ -77,23 +77,6 @@ export const AudioPanel = () => {
                     drag: true,
                     resize: true,
                     id: 'trim-region',
-                    // Force handle styling via JS to Ensure visibility
-                    handleStyle: {
-                        left: {
-                            backgroundColor: '#ffffff',
-                            width: '4px',
-                            opacity: '1',
-                            borderRadius: '6px',
-                            height: '100%'
-                        },
-                        right: {
-                            backgroundColor: '#ffffff',
-                            width: '4px',
-                            opacity: '1',
-                            borderRadius: '6px',
-                            height: '100%'
-                        }
-                    } as any // Bypass strict type check
                 })
             })
 
