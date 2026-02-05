@@ -39,6 +39,8 @@ interface AppState {
     // Animation State (Global)
     isPlaying: boolean
     setIsPlaying: (playing: boolean) => void
+    videoDuration: number
+    setVideoDuration: (duration: number) => void
 
     // Export Settings (Global)
     aspectRatio: AspectRatio
@@ -73,6 +75,14 @@ interface AppState {
     outroQrCode: string | null
     setShowOutro: (show: boolean) => void
     setOutroQrCode: (qr: string | null) => void
+
+    // Audio Settings
+    audioFile: string | null
+    audioVolume: number
+    audioTrim: { start: number, end: number }
+    setAudioFile: (file: string | null) => void
+    setAudioVolume: (volume: number) => void
+    setAudioTrim: (trim: { start: number, end: number }) => void
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -97,6 +107,11 @@ export const useStore = create<AppState>((set) => ({
     // Outro Settings Initial State
     showOutro: false,
     outroQrCode: null,
+
+    // Audio Initial State
+    audioFile: null,
+    audioVolume: 0.5,
+    audioTrim: { start: 0, end: 0 },
 
     addScene: () => set((state) => {
         const newId = crypto.randomUUID()
@@ -198,6 +213,8 @@ export const useStore = create<AppState>((set) => ({
     // Animation
     isPlaying: false,
     setIsPlaying: (isPlaying) => set({ isPlaying }),
+    videoDuration: 0,
+    setVideoDuration: (duration) => set({ videoDuration: duration }),
 
     // Export State
     aspectRatio: '1:1',
@@ -227,4 +244,9 @@ export const useStore = create<AppState>((set) => ({
     // Outro Actions
     setShowOutro: (show) => set({ showOutro: show }),
     setOutroQrCode: (qr) => set({ outroQrCode: qr }),
+
+    // Audio Actions
+    setAudioFile: (file) => set({ audioFile: file }),
+    setAudioVolume: (volume) => set({ audioVolume: volume }),
+    setAudioTrim: (trim) => set({ audioTrim: trim }),
 }))

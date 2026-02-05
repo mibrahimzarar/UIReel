@@ -2,28 +2,24 @@
 import { useDropzone } from 'react-dropzone'
 import { useCallback, useEffect, useState, useRef } from 'react'
 import { useStore, type PhoneColor } from '../store/useStore'
+import { AudioPanel } from './AudioPanel'
 import { clsx } from 'clsx'
-import { Upload, X, Smartphone, Type, Settings, Download, CircleDot, RotateCcw } from 'lucide-react'
-// import { useReactMediaRecorder } from 'react-media-recorder' (Removed)
+import { Upload, X, Smartphone, Type, Settings, Download, CircleDot, RotateCcw, Palette, Play, Pause, Film, Sparkles, Image } from 'lucide-react'
 
 interface ControlPanelProps {
     onClose?: () => void
 }
 
-// Video Composition Layout Refactored
 export const ControlPanel = ({ onClose: _onClose }: ControlPanelProps) => {
     const {
         setPhoneColor,
-        // Scene Actions
         scenes, activeSceneId, addScene, removeScene, setActiveScene,
         addScreenshots, removeScreenshot, updateHeadline, updateSubtitle,
-
         setScrollSpeed,
         aspectRatio, setAspectRatio,
         isPlaying, setIsPlaying,
         setBackground,
         triggerReset,
-        // Intro/Outro State
         showIntro, setShowIntro, introLogo, setIntroLogo, introTitle, setIntroTitle, introSubtitle, setIntroSubtitle,
         showOutro, setShowOutro, outroQrCode, setOutroQrCode
     } = useStore()
@@ -31,96 +27,51 @@ export const ControlPanel = ({ onClose: _onClose }: ControlPanelProps) => {
     const activeScene = scenes.find(s => s.id === activeSceneId) || scenes[0]
     const { screenshots, headline, subtitle, phoneColor, background, scrollSpeed } = activeScene
 
-    // Custom Recording State
     const [isRecording, setIsRecording] = useState(false)
     const [mediaBlobUrl, setMediaBlobUrl] = useState<string | null>(null)
     const mediaRecorderRef = useRef<MediaRecorder | null>(null)
     const chunksRef = useRef<Blob[]>([])
 
+    // === Recording Logic (unchanged) ===
     const startRegionRecording = async () => {
         try {
             setMediaBlobUrl(null)
             chunksRef.current = []
-
-            // 0. LOCK DIMENSIONS to prevent layout shift when "Sharing" banner appears (shrinks viewport)
             const stage = document.getElementById('canvas-stage')
             if (stage) {
                 const rect = stage.getBoundingClientRect()
-                // Store strict pixel values
                 useStore.getState().setLockedDimensions({ width: rect.width, height: rect.height })
             }
-
-            // 1. Get the stream (User selects Current Tab)
-            // request 4K/60fps to ensure highest quality source
             const stream = await navigator.mediaDevices.getDisplayMedia({
-                video: {
-                    displaySurface: 'browser',
-                    width: { ideal: 3840 },
-                    height: { ideal: 2160 },
-                    frameRate: { ideal: 60 },
-                } as any,
-                audio: false,
-                preferCurrentTab: true
+                video: { displaySurface: 'browser', width: { ideal: 3840 }, height: { ideal: 2160 }, frameRate: { ideal: 60 } } as any,
+                audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+                preferCurrentTab: true,
+                systemAudio: 'include',
             } as any)
-
-            // 2. Crop to the canvas-stage element
             const canvasStage = document.getElementById('canvas-stage')
             if (canvasStage && (window as any).CropTarget) {
                 const cropTarget = await (window as any).CropTarget.fromElement(canvasStage)
                 const [videoTrack] = stream.getVideoTracks()
-                if (videoTrack && (videoTrack as any).cropTo) {
-                    await (videoTrack as any).cropTo(cropTarget)
-                }
+                if (videoTrack && (videoTrack as any).cropTo) await (videoTrack as any).cropTo(cropTarget)
             }
-
-            // 3. Start Recording
-            // Try MP4, fallback to WebM
             let mimeType = 'video/mp4'
-            if (!MediaRecorder.isTypeSupported(mimeType)) {
-                mimeType = 'video/webm'
-            }
-
-            // High bitrate for "perfect" quality (50 Mbps)
-            const recorder = new MediaRecorder(stream, {
-                mimeType,
-                videoBitsPerSecond: 50000000
-            })
+            if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm'
+            const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 50000000 })
             mediaRecorderRef.current = recorder
-
-            recorder.ondataavailable = (event) => {
-                if (event.data.size > 0) chunksRef.current.push(event.data)
-            }
-
+            recorder.ondataavailable = (event) => { if (event.data.size > 0) chunksRef.current.push(event.data) }
             recorder.onstop = () => {
                 const blob = new Blob(chunksRef.current, { type: mimeType })
-                const url = URL.createObjectURL(blob)
-                setMediaBlobUrl(url)
-
-                // Stop all tracks to clean up "sharing" indicator
+                setMediaBlobUrl(URL.createObjectURL(blob))
                 stream.getTracks().forEach(track => track.stop())
             }
-
             recorder.start()
             setIsRecording(true)
-
-            // Trigger Automation Flow
             useStore.setState({ isExporting: true, isPlaying: false, animationFinished: false })
-
-            // Start with FADE IN (Black -> Content) from Intro
             useStore.getState().setFadeEffect('fadeIn')
-
-            // Reset to First Scene OR Intro
             const firstSceneId = useStore.getState().scenes[0].id
-            const shouldStartIntro = useStore.getState().showIntro
-
-            useStore.getState().setActiveScene(shouldStartIntro ? 'INTRO' : firstSceneId)
+            useStore.getState().setActiveScene(useStore.getState().showIntro ? 'INTRO' : firstSceneId)
             useStore.getState().triggerReset()
-
-            // Start animation slightly after recording starts to ensure frame capture
-            setTimeout(() => {
-                setIsPlaying(true)
-            }, 1000) // Increased buffer for Scene 1 transition/setup
-
+            setTimeout(() => setIsPlaying(true), 1000)
         } catch (err) {
             console.error("Recording failed", err)
             setIsRecording(false)
@@ -134,537 +85,271 @@ export const ControlPanel = ({ onClose: _onClose }: ControlPanelProps) => {
         }
     }, [])
 
-    // Watch for animation completion signal
     const { animationFinished, setAnimationFinished, setIsExporting } = useStore()
 
-    // SEQUENCE ENGINE: Timers for Static Scenes
     useEffect(() => {
         if (!isRecording) return
-
-        if (activeSceneId === 'INTRO') {
-            console.log('VideoSequence: Starting INTRO Timer (3000ms)')
-            const timer = setTimeout(() => {
-                console.log('VideoSequence: INTRO Timer Finished')
-                useStore.getState().setAnimationFinished(true)
-            }, 3000)
-            return () => clearTimeout(timer)
-        }
-
-        if (activeSceneId === 'OUTRO') {
-            console.log('VideoSequence: Starting OUTRO Timer (4000ms)')
-            const timer = setTimeout(() => {
-                console.log('VideoSequence: OUTRO Timer Finished')
-                useStore.getState().setAnimationFinished(true)
-            }, 4000)
-            return () => clearTimeout(timer)
-        }
+        if (activeSceneId === 'INTRO') { const t = setTimeout(() => useStore.getState().setAnimationFinished(true), 3000); return () => clearTimeout(t) }
+        if (activeSceneId === 'OUTRO') { const t = setTimeout(() => useStore.getState().setAnimationFinished(true), 4000); return () => clearTimeout(t) }
     }, [isRecording, activeSceneId])
 
-
-    // SEQUENCE ENGINE: Transition Orchestrator
     useEffect(() => {
         if (!isRecording || !animationFinished) return
-
-        console.log('VideoSequence: Processing Transition', { activeSceneId })
-
-        // 1. Handle INTRO -> First Scene
-        if (activeSceneId === 'INTRO') {
-            setAnimationFinished(false)
-            setIsPlaying(false)
-
-            // Get first scene
-            const firstSceneId = scenes[0].id
-
-            // Transition
-            setActiveScene(firstSceneId)
-            triggerReset()
-
-            // Start Playing
-            setTimeout(() => {
-                setIsPlaying(true)
-                console.log('VideoSequence: Started Scene 1')
-            }, 500)
-            return
-        }
-
-        // 2. Handle OUTRO -> Finish
-        if (activeSceneId === 'OUTRO') {
-            console.log('VideoSequence: Fade Out Started')
-            useStore.getState().setFadeEffect('fadeOut')
-
-            // Wait for Fade Out (1s) before stopping
-            setTimeout(() => {
-                stopRegionRecording()
-                setIsExporting(false)
-                setAnimationFinished(false)
-                setIsPlaying(false)
-                useStore.getState().setLockedDimensions(null)
-                useStore.getState().setFadeEffect('none')
-                console.log('VideoSequence: Sequence Completed')
-            }, 1000)
-            return
-        }
-
-        // 3. Handle Normal Scenes
-        const currentIdx = scenes.findIndex(s => s.id === activeSceneId)
-
-        if (currentIdx !== -1 && currentIdx < scenes.length - 1) {
-            // Move to Next Scene
-            setAnimationFinished(false)
-            setIsPlaying(false)
-
-            setTimeout(() => {
-                const nextSceneId = scenes[currentIdx + 1].id
-                setActiveScene(nextSceneId)
-
-                setTimeout(() => {
-                    triggerReset()
-                    setTimeout(() => setIsPlaying(true), 100)
-                }, 500)
-            }, 300)
-
-        } else {
-            // Last Scene Finished -> Go to Outro OR Stop
-            setAnimationFinished(false)
-            setIsPlaying(false)
-
-            if (showOutro) {
-                setTimeout(() => {
-                    setActiveScene('OUTRO')
-                }, 500)
-            } else {
-                // Done (No Outro) -> Fade Out -> Stop
-                console.log('VideoSequence: Fade Out Started (No Outro)')
-                useStore.getState().setFadeEffect('fadeOut')
-
-                setTimeout(() => {
-                    stopRegionRecording()
-                    setIsExporting(false)
-                    useStore.getState().setLockedDimensions(null)
-                    useStore.getState().setFadeEffect('none')
-                }, 1000)
-            }
-        }
+        if (activeSceneId === 'INTRO') { setAnimationFinished(false); setIsPlaying(false); setActiveScene(scenes[0].id); triggerReset(); setTimeout(() => setIsPlaying(true), 500); return }
+        if (activeSceneId === 'OUTRO') { useStore.getState().setFadeEffect('fadeOut'); setTimeout(() => { stopRegionRecording(); setIsExporting(false); setAnimationFinished(false); setIsPlaying(false); useStore.getState().setLockedDimensions(null); useStore.getState().setFadeEffect('none') }, 1000); return }
+        const idx = scenes.findIndex(s => s.id === activeSceneId)
+        if (idx !== -1 && idx < scenes.length - 1) { setAnimationFinished(false); setIsPlaying(false); setTimeout(() => { setActiveScene(scenes[idx + 1].id); setTimeout(() => { triggerReset(); setTimeout(() => setIsPlaying(true), 100) }, 500) }, 300) }
+        else { setAnimationFinished(false); setIsPlaying(false); if (showOutro) setTimeout(() => setActiveScene('OUTRO'), 500); else { useStore.getState().setFadeEffect('fadeOut'); setTimeout(() => { stopRegionRecording(); setIsExporting(false); useStore.getState().setLockedDimensions(null); useStore.getState().setFadeEffect('none') }, 1000) } }
     }, [isRecording, animationFinished, activeSceneId, scenes, showOutro, stopRegionRecording, setIsExporting, setAnimationFinished, setIsPlaying, setActiveScene, triggerReset])
 
-    const onDrop = useCallback((acceptedFiles: File[]) => {
-        const fileUrls = acceptedFiles.map(file => URL.createObjectURL(file))
-        addScreenshots(fileUrls)
-    }, [addScreenshots])
-
-    const { getRootProps, getInputProps, isDragActive } = useDropzone({
-        onDrop,
-        accept: { 'image/*': [] }
-    })
+    const onDrop = useCallback((acceptedFiles: File[]) => addScreenshots(acceptedFiles.map(file => URL.createObjectURL(file))), [addScreenshots])
+    const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, accept: { 'image/*': [] } })
 
     const Colors: PhoneColor[] = ['black', 'silver', 'gold', 'blue']
+    const Backgrounds = [
+        { name: 'Noir', class: 'bg-[radial-gradient(ellipse_at_top,_#1a1a2e_0%,_#16213e_50%,_#0f0f0f_100%)]' },
+        { name: 'Slate', class: 'bg-gradient-to-br from-slate-600 via-slate-800 to-black' },
+        { name: 'Twilight', class: 'bg-gradient-to-br from-purple-900/80 via-slate-900 to-black' },
+        { name: 'Carbon', class: 'bg-gradient-to-br from-neutral-700 via-zinc-900 to-black' },
+        { name: 'Forest', class: 'bg-gradient-to-br from-green-800 via-emerald-900 to-black' },
+        { name: 'Gold', class: 'bg-gradient-to-br from-yellow-600/50 via-gray-900 to-black' },
+        { name: 'Velvet', class: 'bg-gradient-to-bl from-red-700/50 via-gray-900 to-black' },
+        { name: 'Cyber', class: 'bg-gradient-to-tr from-cyan-600/50 via-gray-900 to-purple-600/50' },
+    ]
+
+    // Toggle Component
+    const Toggle = ({ value, onChange }: { value: boolean; onChange: () => void }) => (
+        <button onClick={onChange} className={clsx("w-11 h-6 rounded-full relative transition-all duration-300", value ? "bg-primary shadow-[0_0_12px_rgba(59,130,246,0.5)]" : "bg-white/10")}>
+            <div className={clsx("absolute top-1 w-4 h-4 rounded-full bg-white shadow-md transition-all duration-300", value ? "left-6" : "left-1")} />
+        </button>
+    )
 
     return (
-        <div className="w-full h-full flex flex-col gap-6 p-6 overflow-y-auto custom-scrollbar">
+        <div className="w-full h-full flex flex-col overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.1) transparent' }}>
 
-            <div className="space-y-1">
-                <h2 className="text-xl font-bold">Configuration</h2>
-                <p className="text-sm text-muted-foreground">Customize your video export</p>
+            {/* Header */}
+            <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b border-white/5 px-5 py-4">
+                <h1 className="text-base font-semibold tracking-tight">Video Editor</h1>
             </div>
 
-            {/* Video Composition Section */}
-            <section className="space-y-4 p-4 bg-white/5 rounded-xl border border-white/10">
-                <div className="flex items-center justify-between mb-2">
-                    <label className="text-sm font-bold flex items-center gap-2">
-                        Video Composition
-                    </label>
-                </div>
+            <div className="flex flex-col gap-6 p-5">
 
-                {/* 1. Intro Toggle & Settings */}
-                <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                        <span className="text-sm text-white/80">Intro Screen</span>
-                        <div
-                            onClick={() => setShowIntro(!showIntro)}
-                            className={clsx("w-10 h-5 rounded-full relative cursor-pointer transition-colors", showIntro ? "bg-primary" : "bg-white/20")}
-                        >
-                            <div className={clsx("absolute top-1 w-3 h-3 rounded-full bg-white transition-all shadow-sm", showIntro ? "left-6" : "left-1")} />
-                        </div>
+                {/* === TIMELINE / SCENES === */}
+                <section>
+                    <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-xs font-semibold uppercase tracking-wider text-white/40 flex items-center gap-2">
+                            <Film size={14} /> Timeline
+                        </h3>
+                        <button onClick={addScene} className="text-[10px] font-medium text-primary hover:text-primary/80 transition">+ Add Scene</button>
                     </div>
 
-                    {showIntro && (
-                        <div className="space-y-3 pl-2 border-l-2 border-white/10 ml-1">
-                            {/* Logo Upload */}
-                            <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 rounded-lg bg-black/40 border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0">
-                                    {introLogo ? <img src={introLogo} className="w-full h-full object-cover" /> : <Upload size={14} className="text-white/30" />}
-                                </div>
-                                <div className="flex-1">
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        id="intro-logo"
-                                        className="hidden"
-                                        onChange={(e) => {
-                                            if (e.target.files?.[0]) {
-                                                setIntroLogo(URL.createObjectURL(e.target.files[0]))
-                                            }
-                                        }}
-                                    />
-                                    <label htmlFor="intro-logo" className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded cursor-pointer transition-colors">
-                                        Upload Logo
-                                    </label>
-                                </div>
-                            </div>
-                            <input
-                                value={introTitle}
-                                onChange={(e) => setIntroTitle(e.target.value)}
-                                placeholder="App Name"
-                                className="input-sm text-xs"
-                            />
-                            <input
-                                value={introSubtitle}
-                                onChange={(e) => setIntroSubtitle(e.target.value)}
-                                placeholder="Slogan / Tagline"
-                                className="input-sm text-xs"
-                            />
-                        </div>
-                    )}
-                </div>
-
-                <div className="w-full h-px bg-white/10 my-2" />
-
-                {/* 2. Scene Manager (Middle) */}
-                <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                        <span className="text-sm text-white/80">Main Scenes</span>
-                        <button onClick={addScene} className="text-[10px] bg-white/10 px-2 py-1 rounded hover:bg-white/20 transition">
-                            + Add Scene
-                        </button>
-                    </div>
-                    <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-                        {/* Intro Button Ref */}
+                    {/* Scene Pills */}
+                    <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
                         {showIntro && (
-                            <button
-                                onClick={() => setActiveScene('INTRO')}
-                                className={clsx(
-                                    "flex-shrink-0 px-3 py-2 rounded-lg border text-xs transition-all relative group font-semibold",
-                                    activeSceneId === 'INTRO' ? "bg-white text-black border-white" : "bg-blue-500/20 text-blue-200 border-blue-500/30 hover:border-blue-400"
-                                )}
-                            >
-                                Intro
+                            <button onClick={() => setActiveScene('INTRO')} className={clsx("flex-shrink-0 px-4 py-2 rounded-full text-xs font-medium transition-all", activeSceneId === 'INTRO' ? "bg-blue-500 text-white shadow-lg shadow-blue-500/30" : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white")}>
+                                ✨ Intro
                             </button>
                         )}
-
                         {scenes.map((scene, idx) => (
-                            <button
-                                key={scene.id}
-                                onClick={() => setActiveScene(scene.id)}
-                                className={clsx(
-                                    "flex-shrink-0 px-3 py-2 rounded-lg border text-xs transition-all relative group",
-                                    activeSceneId === scene.id ? "bg-white text-black border-white" : "bg-black/40 border-white/10 hover:border-white/30"
-                                )}
-                            >
+                            <button key={scene.id} onClick={() => setActiveScene(scene.id)} className={clsx("flex-shrink-0 px-4 py-2 rounded-full text-xs font-medium transition-all group relative", activeSceneId === scene.id ? "bg-white text-black shadow-lg" : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white")}>
                                 Scene {idx + 1}
                                 {scenes.length > 1 && (
-                                    <span
-                                        onClick={(e) => { e.stopPropagation(); removeScene(scene.id) }}
-                                        className="ml-2 text-red-500 hover:text-red-700 font-bold"
-                                    >×</span>
+                                    <span onClick={(e) => { e.stopPropagation(); removeScene(scene.id) }} className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-white text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:bg-red-600">×</span>
                                 )}
                             </button>
                         ))}
-
-                        {/* Outro Button Ref */}
                         {showOutro && (
-                            <button
-                                onClick={() => setActiveScene('OUTRO')}
-                                className={clsx(
-                                    "flex-shrink-0 px-3 py-2 rounded-lg border text-xs transition-all relative group font-semibold",
-                                    activeSceneId === 'OUTRO' ? "bg-white text-black border-white" : "bg-purple-500/20 text-purple-200 border-purple-500/30 hover:border-purple-400"
-                                )}
-                            >
-                                Outro
+                            <button onClick={() => setActiveScene('OUTRO')} className={clsx("flex-shrink-0 px-4 py-2 rounded-full text-xs font-medium transition-all", activeSceneId === 'OUTRO' ? "bg-purple-500 text-white shadow-lg shadow-purple-500/30" : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white")}>
+                                🎬 Outro
                             </button>
                         )}
                     </div>
+                </section>
 
-                    {/* Scene-specific Screenshots (Only show for standard scenes) */}
-                    {!['INTRO', 'OUTRO'].includes(activeSceneId) && (
-                        <div className="mt-4 pt-4 border-t border-white/10 space-y-3">
-                            <label className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-2">
-                                <Upload size={12} /> Screenshots for Scene {(scenes.findIndex(s => s.id === activeSceneId) !== -1 ? scenes.findIndex(s => s.id === activeSceneId) + 1 : '1')}
-                            </label>
+                {/* === SCENE CONTENT === */}
+                {!['INTRO', 'OUTRO'].includes(activeSceneId) && (
+                    <section className="space-y-5">
 
-                            <div
-                                {...getRootProps()}
-                                className={clsx(
-                                    "border border-dashed border-white/10 rounded-lg p-6 text-center cursor-pointer transition-colors hover:border-primary/50 hover:bg-white/5",
-                                    isDragActive && "border-primary bg-primary/10"
-                                )}
-                            >
+                        {/* Screenshots */}
+                        <div>
+                            <h3 className="text-xs font-semibold uppercase tracking-wider text-white/40 flex items-center gap-2 mb-3">
+                                <Image size={14} /> Screenshots
+                            </h3>
+                            <div {...getRootProps()} className={clsx("border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all", isDragActive ? "border-primary bg-primary/10" : "border-white/10 hover:border-white/20 hover:bg-white/[0.02]")}>
                                 <input {...getInputProps()} />
-                                <p className="text-xs text-muted-foreground">
-                                    {isDragActive ? "Drop images here..." : "Drag & drop screenshots for this scene"}
-                                </p>
+                                <Upload size={24} className="mx-auto mb-2 text-white/20" />
+                                <p className="text-sm text-white/40">{isDragActive ? "Drop to upload" : "Drag & drop or click to upload"}</p>
                             </div>
-
-                            {/* Thumbnails */}
                             {screenshots.length > 0 && (
-                                <div className="grid grid-cols-4 gap-2">
+                                <div className="grid grid-cols-4 gap-2 mt-3">
                                     {screenshots.map((src, idx) => (
-                                        <div key={idx} className="relative group aspect-[9/16] rounded-md overflow-hidden border border-white/10">
+                                        <div key={idx} className="relative group aspect-[9/16] rounded-lg overflow-hidden ring-1 ring-white/10">
                                             <img src={src} className="w-full h-full object-cover" alt="" />
-                                            <button
-                                                onClick={() => removeScreenshot(idx)}
-                                                className="absolute top-1 right-1 bg-red-500/80 p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                                            >
-                                                <X size={12} />
-                                            </button>
+                                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                <button onClick={() => removeScreenshot(idx)} className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center"><X size={14} /></button>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
                             )}
                         </div>
-                    )}
-                </div>
 
-                <div className="w-full h-px bg-white/10 my-2" />
-
-                {/* 3. Outro Toggle & Settings */}
-                <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                        <span className="text-sm text-white/80">Outro Screen</span>
-                        <div
-                            onClick={() => setShowOutro(!showOutro)}
-                            className={clsx("w-10 h-5 rounded-full relative cursor-pointer transition-colors", showOutro ? "bg-primary" : "bg-white/20")}
-                        >
-                            <div className={clsx("absolute top-1 w-3 h-3 rounded-full bg-white transition-all shadow-sm", showOutro ? "left-6" : "left-1")} />
+                        {/* Device */}
+                        <div>
+                            <h3 className="text-xs font-semibold uppercase tracking-wider text-white/40 flex items-center gap-2 mb-3">
+                                <Smartphone size={14} /> Device
+                            </h3>
+                            <div className="flex gap-2">
+                                {Colors.map((color) => (
+                                    <button key={color} onClick={() => setPhoneColor(color)} className={clsx("flex-1 py-2.5 rounded-lg text-xs font-medium capitalize transition-all", phoneColor === color ? "bg-white text-black shadow-lg" : "bg-white/5 text-white/60 hover:bg-white/10")}>
+                                        {color}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                    </div>
 
-                    {showOutro && (
-                        <div className="space-y-3 pl-2 border-l-2 border-white/10 ml-1">
-                            <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 rounded-lg bg-white flex items-center justify-center overflow-hidden flex-shrink-0">
-                                    {outroQrCode ? <img src={outroQrCode} className="w-full h-full object-cover" /> : <Settings size={14} className="text-black/30" />}
+                        {/* Background */}
+                        <div>
+                            <h3 className="text-xs font-semibold uppercase tracking-wider text-white/40 flex items-center gap-2 mb-3">
+                                <Palette size={14} /> Background
+                            </h3>
+                            <div className="grid grid-cols-4 gap-2">
+                                {Backgrounds.map((bg) => (
+                                    <button key={bg.name} onClick={() => setBackground(bg.class)} title={bg.name} className={clsx("aspect-square rounded-lg transition-all relative overflow-hidden", background === bg.class ? "ring-2 ring-white ring-offset-2 ring-offset-background" : "ring-1 ring-white/10 hover:ring-white/30")}>
+                                        <div className={clsx("absolute inset-0", bg.class)} />
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Typography */}
+                        <div>
+                            <h3 className="text-xs font-semibold uppercase tracking-wider text-white/40 flex items-center gap-2 mb-3">
+                                <Type size={14} /> Text
+                            </h3>
+                            <div className="space-y-3">
+                                <input type="text" value={headline} onChange={(e) => updateHeadline(e.target.value)} placeholder="Headline" className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm placeholder:text-white/30 focus:border-primary focus:outline-none transition-colors" />
+                                <input type="text" value={subtitle} onChange={(e) => updateSubtitle(e.target.value)} placeholder="Subtitle" className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm placeholder:text-white/30 focus:border-primary focus:outline-none transition-colors" />
+                            </div>
+                        </div>
+
+                        {/* Animation */}
+                        <div>
+                            <h3 className="text-xs font-semibold uppercase tracking-wider text-white/40 flex items-center gap-2 mb-3">
+                                <Settings size={14} /> Animation
+                            </h3>
+                            <div className="space-y-4">
+                                <div>
+                                    <div className="flex justify-between text-xs mb-2">
+                                        <span className="text-white/50">Scroll Speed</span>
+                                        <span className="text-white font-medium">{scrollSpeed}%</span>
+                                    </div>
+                                    <input type="range" min="0" max="100" value={scrollSpeed} onChange={(e) => setScrollSpeed(Number(e.target.value))} className="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary" />
                                 </div>
-                                <div className="flex-1">
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        id="outro-qr"
-                                        className="hidden"
-                                        onChange={(e) => {
-                                            if (e.target.files?.[0]) {
-                                                setOutroQrCode(URL.createObjectURL(e.target.files[0]))
-                                            }
-                                        }}
-                                    />
-                                    <label htmlFor="outro-qr" className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded cursor-pointer transition-colors">
-                                        Upload QR Code
-                                    </label>
+                                <div className="flex gap-2">
+                                    <button onClick={() => { triggerReset(); setIsPlaying(false) }} className="flex-1 py-2.5 bg-white/5 hover:bg-white/10 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors">
+                                        <RotateCcw size={14} /> Reset
+                                    </button>
+                                    <button onClick={() => setIsPlaying(!isPlaying)} className={clsx("flex-1 py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-all", isPlaying ? "bg-white/10" : "bg-primary text-white shadow-lg shadow-primary/30")}>
+                                        {isPlaying ? <><Pause size={14} /> Pause</> : <><Play size={14} /> Preview</>}
+                                    </button>
                                 </div>
                             </div>
                         </div>
-                    )}
-                </div>
-            </section>
+                    </section>
+                )}
 
+                {/* === INTRO/OUTRO SETTINGS === */}
+                <section className="space-y-4">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-white/40 flex items-center gap-2">
+                        <Sparkles size={14} /> Intro & Outro
+                    </h3>
 
-
-            <hr className="border-white/10" />
-
-            {/* Appearance */}
-            <section className="space-y-4">
-                <label className="text-sm font-medium flex items-center gap-2">
-                    <Smartphone size={16} /> Device Style
-                </label>
-                <div className="grid grid-cols-4 gap-2">
-                    {Colors.map((color) => (
-                        <button
-                            key={color}
-                            onClick={() => setPhoneColor(color)}
-                            className={clsx(
-                                "h-10 rounded-lg border transition-all capitalize text-xs",
-                                phoneColor === color ? "border-primary bg-primary/20 text-white" : "border-white/10 text-muted-foreground hover:bg-white/5"
-                            )}
-                        >
-                            {color}
-                        </button>
-                    ))}
-                </div>
-            </section>
-
-            <section className="space-y-4">
-                <label className="text-sm font-medium flex items-center gap-2">
-                    <div className="w-4 h-4 rounded-full bg-gradient-to-tr from-purple-500 to-blue-500" /> Background
-                </label>
-                <div className="grid grid-cols-4 gap-2">
-                    {[
-                        { name: 'Noir Elegance', class: 'bg-[radial-gradient(ellipse_at_top,_#1a1a2e_0%,_#16213e_50%,_#0f0f0f_100%)]' },
-                        { name: 'Slate', class: 'bg-gradient-to-br from-slate-600 via-slate-800 to-black' },
-                        { name: 'Twilight', class: 'bg-gradient-to-br from-purple-900/80 via-slate-900 to-black' },
-                        { name: 'Carbon', class: 'bg-gradient-to-br from-neutral-700 via-zinc-900 to-black' },
-                        { name: 'Forest', class: 'bg-gradient-to-br from-green-800 via-emerald-900 to-black' },
-                        { name: 'Luxury Gold', class: 'bg-gradient-to-br from-yellow-600/50 via-gray-900 to-black' },
-                        { name: 'Velvet', class: 'bg-gradient-to-bl from-red-700/50 via-gray-900 to-black' },
-                        { name: 'Cyber', class: 'bg-gradient-to-tr from-cyan-600/50 via-gray-900 to-purple-600/50' },
-                    ].map((bg) => (
-                        <button
-                            key={bg.name}
-                            onClick={() => setBackground(bg.class)}
-                            title={bg.name}
-                            className={clsx(
-                                "h-10 rounded-lg border transition-all relative overflow-hidden group",
-                                background === bg.class ? "border-white scale-105 shadow-xl" : "border-white/10 hover:border-white/30"
-                            )}
-                        >
-                            <div className={clsx("absolute inset-0", bg.class)} />
-                        </button>
-                    ))}
-                </div>
-            </section>
-
-            {/* Text */}
-            <section className="space-y-4">
-                <label className="text-sm font-medium flex items-center gap-2">
-                    <Type size={16} /> Typography
-                </label>
-                <div className="space-y-3">
-                    <div>
-                        <span className="text-xs text-muted-foreground mb-1 block">Headline</span>
-                        <input
-                            type="text"
-                            value={headline}
-                            onChange={(e) => updateHeadline(e.target.value)}
-                            className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-primary outline-none transition-colors"
-                        />
-                    </div>
-                    <div>
-                        <span className="text-xs text-muted-foreground mb-1 block">Subtitle</span>
-                        <input
-                            type="text"
-                            value={subtitle}
-                            onChange={(e) => updateSubtitle(e.target.value)}
-                            className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-primary outline-none transition-colors"
-                        />
-                    </div>
-                </div>
-            </section>
-
-            {/* Animation */}
-            <section className="space-y-4">
-                <label className="text-sm font-medium flex items-center gap-2">
-                    <Settings size={16} /> Animation
-                </label>
-                <div className="space-y-3">
-                    <div>
-                        <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                            <span>Scroll Speed</span>
-                            <span>{scrollSpeed}%</span>
+                    {/* Intro */}
+                    <div className="bg-white/[0.02] rounded-xl p-4 space-y-4 border border-white/5">
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">Intro Screen</span>
+                            <Toggle value={showIntro} onChange={() => setShowIntro(!showIntro)} />
                         </div>
-                        <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            value={scrollSpeed}
-                            onChange={(e) => setScrollSpeed(Number(e.target.value))}
-                            className="w-full accent-primary h-1 bg-white/10 rounded-lg appearance-none cursor-pointer"
-                        />
+                        {showIntro && (
+                            <div className="space-y-3 pt-2 border-t border-white/5">
+                                <div className="flex gap-3">
+                                    <div className="w-14 h-14 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                        {introLogo ? <img src={introLogo} className="w-full h-full object-cover" /> : <Upload size={16} className="text-white/20" />}
+                                    </div>
+                                    <div className="flex-1 flex items-center">
+                                        <input type="file" accept="image/*" id="intro-logo" className="hidden" onChange={(e) => { if (e.target.files?.[0]) setIntroLogo(URL.createObjectURL(e.target.files[0])) }} />
+                                        <label htmlFor="intro-logo" className="text-xs bg-white/10 hover:bg-white/15 px-3 py-2 rounded-lg cursor-pointer transition-colors">Upload Logo</label>
+                                    </div>
+                                </div>
+                                <input value={introTitle} onChange={(e) => setIntroTitle(e.target.value)} placeholder="App Name" className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm placeholder:text-white/30 focus:border-primary focus:outline-none" />
+                                <input value={introSubtitle} onChange={(e) => setIntroSubtitle(e.target.value)} placeholder="Tagline" className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm placeholder:text-white/30 focus:border-primary focus:outline-none" />
+                            </div>
+                        )}
                     </div>
-                    <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Playback</span>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={() => {
-                                    triggerReset()
-                                    setIsPlaying(false)
-                                }}
-                                className="text-xs px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center gap-1"
-                                title="Reset to Top"
-                            >
-                                <RotateCcw size={12} />
-                            </button>
-                            <button
-                                onClick={() => setIsPlaying(!isPlaying)}
-                                className="text-xs px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 transition-colors w-16 text-center"
-                            >
-                                {isPlaying ? "Pause" : "Play"}
-                            </button>
+
+                    {/* Outro */}
+                    <div className="bg-white/[0.02] rounded-xl p-4 space-y-4 border border-white/5">
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">Outro Screen</span>
+                            <Toggle value={showOutro} onChange={() => setShowOutro(!showOutro)} />
                         </div>
+                        {showOutro && (
+                            <div className="space-y-3 pt-2 border-t border-white/5">
+                                <div className="flex gap-3">
+                                    <div className="w-14 h-14 rounded-xl bg-white border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                        {outroQrCode ? <img src={outroQrCode} className="w-full h-full object-cover" /> : <Settings size={16} className="text-black/20" />}
+                                    </div>
+                                    <div className="flex-1 flex items-center">
+                                        <input type="file" accept="image/*" id="outro-qr" className="hidden" onChange={(e) => { if (e.target.files?.[0]) setOutroQrCode(URL.createObjectURL(e.target.files[0])) }} />
+                                        <label htmlFor="outro-qr" className="text-xs bg-white/10 hover:bg-white/15 px-3 py-2 rounded-lg cursor-pointer transition-colors">Upload QR</label>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
-                </div>
-            </section>
+                </section>
 
-            {/* Export Settings */}
-            <section className="space-y-4">
-                <label className="text-sm font-medium flex items-center gap-2">
-                    <Download size={16} /> Export
-                </label>
+                {/* === AUDIO === */}
+                <AudioPanel />
 
-                {/* Ratio Selector */}
-                <div className="flex bg-black/20 p-1 rounded-lg border border-white/10 mb-4">
-                    <button
-                        onClick={() => setAspectRatio('1:1')}
-                        className={clsx(
-                            "flex-1 py-1.5 text-xs rounded-md transition-all",
-                            aspectRatio === '1:1' ? "bg-primary text-white shadow-lg" : "text-muted-foreground hover:text-white"
-                        )}
-                    >
-                        Square (1:1)
-                    </button>
-                    <button
-                        onClick={() => setAspectRatio('9:16')}
-                        className={clsx(
-                            "flex-1 py-1.5 text-xs rounded-md transition-all",
-                            aspectRatio === '9:16' ? "bg-primary text-white shadow-lg" : "text-muted-foreground hover:text-white"
-                        )}
-                    >
-                        Vertical (9:16)
-                    </button>
-                </div>
+                {/* === EXPORT === */}
+                <section className="space-y-4">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-white/40 flex items-center gap-2">
+                        <Download size={14} /> Export
+                    </h3>
 
-                {/* Automated Recording Controls */}
-                <div className="space-y-3">
+                    <div className="flex gap-2">
+                        <button onClick={() => setAspectRatio('1:1')} className={clsx("flex-1 py-3 rounded-lg text-sm font-medium transition-all", aspectRatio === '1:1' ? "bg-white text-black shadow-lg" : "bg-white/5 text-white/60 hover:bg-white/10")}>
+                            1:1 Square
+                        </button>
+                        <button onClick={() => setAspectRatio('9:16')} className={clsx("flex-1 py-3 rounded-lg text-sm font-medium transition-all", aspectRatio === '9:16' ? "bg-white text-black shadow-lg" : "bg-white/5 text-white/60 hover:bg-white/10")}>
+                            9:16 Vertical
+                        </button>
+                    </div>
 
                     {!isRecording ? (
-                        <div className="space-y-2">
-                            <div className="bg-blue-500/10 border border-blue-500/20 p-3 rounded-lg text-xs text-blue-200">
-                                <strong>Note:</strong> Browser security requires permission. When prompted, select <u>Edge/Chrome Tab</u> → <u>Current Page</u>.
-                            </div>
-                            <button
-                                onClick={startRegionRecording}
-                                className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium flex items-center justify-center gap-2 transition-all shadow-[0_0_15px_rgba(220,38,38,0.5)]"
-                            >
-                                <CircleDot size={18} /> Generate Video
-                            </button>
-                        </div>
+                        <button onClick={startRegionRecording} className="w-full py-4 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white rounded-xl font-semibold flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-500/25 active:scale-[0.98]">
+                            <CircleDot size={18} /> Generate Video
+                        </button>
                     ) : (
-                        <div className="w-full py-3 bg-gray-700 text-white rounded-lg font-medium flex items-center justify-center gap-2 transition-all animate-pulse cursor-wait">
-                            <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                        <div className="w-full py-4 bg-white/5 text-white rounded-xl font-medium flex items-center justify-center gap-3">
+                            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
                             Generating...
                         </div>
                     )}
 
-                    {isRecording && (
-                        <p className="text-xs text-center text-muted-foreground">
-                            Please wait while the video is generated...
-                        </p>
-                    )}
-
-                    {/* Download Link */}
                     {mediaBlobUrl && !isRecording && (
-                        <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-3">
-                            <p className="text-xs text-muted-foreground">Video ready!</p>
+                        <div className="bg-white/[0.02] rounded-xl p-4 space-y-4 border border-white/5">
                             <video src={mediaBlobUrl} controls className="w-full rounded-lg" />
-                            <a
-                                href={mediaBlobUrl}
-                                download="app-promo.mp4"
-                                className="block w-full py-2 bg-primary hover:bg-primary/90 text-white text-center rounded-lg text-sm font-medium transition-colors"
-                            >
+                            <a href={mediaBlobUrl} download="app-promo.mp4" className="block w-full py-3 bg-primary hover:bg-primary/90 text-white text-center rounded-lg font-medium transition-colors">
                                 Download Video
                             </a>
                         </div>
                     )}
-                </div>
-            </section>
+                </section>
+
+            </div>
         </div>
     )
 }
-

@@ -162,3 +162,24 @@ html {
     padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
 }
+
+/* Region Handles - Force Specificity */
+[data-wavesurfer-region] handle {
+    background-color: #ffffff !important;
+    width: 4px !important;
+    max-width: 4px !important;
+    opacity: 1 !important;
+    border-radius: 999px !important;
+    z-index: 10 !important;
+    box-shadow: 0 0 10px rgba(0,0,0,0.5) !important;
+}
+.wavesurfer-handle {
+    background-color: #ffffff !important;
+    width: 4px !important;
+    max-width: 4px !important;
+    opacity: 0.9;
+}
+.wavesurfer-region {
+    border: 1px solid rgba(239, 68, 68, 0.8) !important;
+    background-color: rgba(239, 68, 68, 0.2) !important;
+}
