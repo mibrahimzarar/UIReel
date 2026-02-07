@@ -8,6 +8,7 @@ import { Play, Pause, Music, Volume2, Upload, Trash2, Scissors, AlertCircle } fr
 export const AudioPanel = () => {
     const {
         audioFile, setAudioFile,
+        audioName, setAudioName,
         audioVolume, setAudioVolume,
         setAudioTrim,
         isPlaying,
@@ -28,6 +29,7 @@ export const AudioPanel = () => {
             setError(null)
             const url = URL.createObjectURL(file)
             setAudioFile(url)
+            setAudioName(file.name)
         }
     }
 
@@ -157,6 +159,7 @@ export const AudioPanel = () => {
 
     const clearAudio = () => {
         setAudioFile(null)
+        setAudioName(null)
         setAudioTrim({ start: 0, end: 0 })
         setError(null)
     }
@@ -200,9 +203,12 @@ export const AudioPanel = () => {
     return (
         <div className="space-y-4 p-4 bg-white/5 rounded-xl border border-white/10 relative z-20">
             <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-bold flex items-center gap-2">
-                    <Music size={16} /> Edit Audio
-                </label>
+                <div className="flex flex-col">
+                    <label className="text-sm font-bold flex items-center gap-2">
+                        <Music size={16} /> Edit Audio
+                    </label>
+                    {audioName && <span className="text-[10px] text-white/50 truncate max-w-[200px]">{audioName}</span>}
+                </div>
                 <div className="flex gap-2">
                     <button
                         onClick={clearAudio}

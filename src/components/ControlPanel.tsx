@@ -5,6 +5,7 @@ import { useStore, type PhoneColor } from '../store/useStore'
 import { AudioPanel } from './AudioPanel'
 import { clsx } from 'clsx'
 import { Upload, X, Smartphone, Type, Settings, Download, CircleDot, RotateCcw, Palette, Play, Pause, Film, Sparkles, Image } from 'lucide-react'
+import { GenericBackgroundPicker } from './GenericBackgroundPicker'
 
 interface ControlPanelProps {
     onClose?: () => void
@@ -18,14 +19,14 @@ export const ControlPanel = ({ onClose: _onClose }: ControlPanelProps) => {
         setScrollSpeed,
         aspectRatio, setAspectRatio,
         isPlaying, setIsPlaying,
-        setBackground,
+        setBackgroundType, setBackgroundColor, setBackgroundGradient, setBackgroundPattern, setBackgroundImage,
         triggerReset,
         showIntro, setShowIntro, introLogo, setIntroLogo, introTitle, setIntroTitle, introSubtitle, setIntroSubtitle,
         showOutro, setShowOutro, outroQrCode, setOutroQrCode
     } = useStore()
 
     const activeScene = scenes.find(s => s.id === activeSceneId) || scenes[0]
-    const { screenshots, headline, subtitle, phoneColor, background, scrollSpeed } = activeScene
+    const { screenshots, headline, subtitle, phoneColor, scrollSpeed } = activeScene
 
     const [isRecording, setIsRecording] = useState(false)
     const [mediaBlobUrl, setMediaBlobUrl] = useState<string | null>(null)
@@ -106,16 +107,6 @@ export const ControlPanel = ({ onClose: _onClose }: ControlPanelProps) => {
     const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, accept: { 'image/*': [] } })
 
     const Colors: PhoneColor[] = ['black', 'silver', 'gold', 'blue']
-    const Backgrounds = [
-        { name: 'Noir', class: 'bg-[radial-gradient(ellipse_at_top,_#1a1a2e_0%,_#16213e_50%,_#0f0f0f_100%)]' },
-        { name: 'Slate', class: 'bg-gradient-to-br from-slate-600 via-slate-800 to-black' },
-        { name: 'Twilight', class: 'bg-gradient-to-br from-purple-900/80 via-slate-900 to-black' },
-        { name: 'Carbon', class: 'bg-gradient-to-br from-neutral-700 via-zinc-900 to-black' },
-        { name: 'Forest', class: 'bg-gradient-to-br from-green-800 via-emerald-900 to-black' },
-        { name: 'Gold', class: 'bg-gradient-to-br from-yellow-600/50 via-gray-900 to-black' },
-        { name: 'Velvet', class: 'bg-gradient-to-bl from-red-700/50 via-gray-900 to-black' },
-        { name: 'Cyber', class: 'bg-gradient-to-tr from-cyan-600/50 via-gray-900 to-purple-600/50' },
-    ]
 
     // Toggle Component
     const Toggle = ({ value, onChange }: { value: boolean; onChange: () => void }) => (
@@ -127,10 +118,7 @@ export const ControlPanel = ({ onClose: _onClose }: ControlPanelProps) => {
     return (
         <div className="w-full h-full flex flex-col overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.1) transparent' }}>
 
-            {/* Header */}
-            <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b border-white/5 px-5 py-4">
-                <h1 className="text-base font-semibold tracking-tight">Video Editor</h1>
-            </div>
+
 
             <div className="flex flex-col gap-6 p-5">
 
@@ -213,13 +201,18 @@ export const ControlPanel = ({ onClose: _onClose }: ControlPanelProps) => {
                             <h3 className="text-xs font-semibold uppercase tracking-wider text-white/40 flex items-center gap-2 mb-3">
                                 <Palette size={14} /> Background
                             </h3>
-                            <div className="grid grid-cols-4 gap-2">
-                                {Backgrounds.map((bg) => (
-                                    <button key={bg.name} onClick={() => setBackground(bg.class)} title={bg.name} className={clsx("aspect-square rounded-lg transition-all relative overflow-hidden", background === bg.class ? "ring-2 ring-white ring-offset-2 ring-offset-background" : "ring-1 ring-white/10 hover:ring-white/30")}>
-                                        <div className={clsx("absolute inset-0", bg.class)} />
-                                    </button>
-                                ))}
-                            </div>
+                            <GenericBackgroundPicker
+                                type={activeScene.backgroundType}
+                                color={activeScene.backgroundColor}
+                                gradient={activeScene.backgroundGradient}
+                                pattern={activeScene.backgroundPattern}
+                                image={activeScene.backgroundImage}
+                                onTypeChange={setBackgroundType}
+                                onColorChange={setBackgroundColor}
+                                onGradientChange={setBackgroundGradient}
+                                onPatternChange={setBackgroundPattern}
+                                onImageChange={setBackgroundImage}
+                            />
                         </div>
 
                         {/* Typography */}

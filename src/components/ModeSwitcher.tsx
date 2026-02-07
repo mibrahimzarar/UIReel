@@ -29,7 +29,7 @@ export const ModeSwitcher = ({ mode, onModeChange }: ModeSwitcherProps) => {
                     )}
                     <span className="relative z-10 flex items-center gap-2">
                         <Film size={16} />
-                        Video Mockup
+                        Motion Video
                     </span>
                 </button>
                 <button

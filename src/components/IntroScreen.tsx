@@ -1,17 +1,20 @@
 import { motion } from 'framer-motion'
 import { useStore } from '../store/useStore'
+import { getBackgroundStyle } from './GenericBackgroundPicker'
 
 export const IntroScreen = () => {
     const { introLogo, introTitle, introSubtitle, scenes, aspectRatio } = useStore()
 
     // Determine backgound from the FIRST scene for consistency, or active scene
     const firstScene = scenes[0]
-    const background = firstScene?.background || "bg-[#0f1218]"
 
     const isVertical = aspectRatio === '9:16'
 
     return (
-        <div className={`w-full h-full flex flex-col items-center justify-center p-8 text-center relative overflow-hidden ${background}`}>
+        <div
+            className="w-full h-full flex flex-col items-center justify-center p-8 text-center relative overflow-hidden"
+            style={getBackgroundStyle(firstScene)}
+        >
             {/* Animated Particles/Glow (Optional - borrowing from Layout ambient feel) */}
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_transparent_0%,_rgba(0,0,0,0.4)_100%)] pointer-events-none" />
 

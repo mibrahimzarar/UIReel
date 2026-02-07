@@ -1,4 +1,4 @@
-import { useStore } from '../store/useStore'
+import { useStore, type Scene } from '../store/useStore'
 import { ControlPanel } from './ControlPanel'
 import { PhoneMockup } from './PhoneMockup'
 import { clsx } from 'clsx'
@@ -6,11 +6,33 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useState } from 'react'
 import { IntroScreen } from './IntroScreen'
 import { OutroScreen } from './OutroScreen'
+import { patterns } from './GenericBackgroundPicker'
+
+// Helper to get background CSS
+const getBackgroundStyle = (scene: Scene) => {
+    switch (scene.backgroundType) {
+        case 'gradient':
+            return { background: scene.backgroundGradient }
+        case 'solid':
+            return { background: scene.backgroundColor }
+        case 'pattern':
+            return {
+                background: scene.backgroundColor,
+                backgroundImage: patterns[scene.backgroundPattern],
+            }
+        case 'image':
+            return scene.backgroundImage
+                ? { backgroundImage: `url(${scene.backgroundImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+                : { background: scene.backgroundColor }
+        default:
+            return { background: scene.backgroundGradient }
+    }
+}
 
 export const Layout = () => {
     const { scenes, activeSceneId, lockedDimensions, aspectRatio, fadeEffect } = useStore()
     const activeScene = scenes.find(s => s.id === activeSceneId) || scenes[0]
-    const { headline, subtitle, background } = activeScene
+    const { headline, subtitle } = activeScene
 
     const hasText = headline.trim().length > 0 || subtitle.trim().length > 0
 
@@ -42,15 +64,15 @@ export const Layout = () => {
     if (!mounted) return null
 
     return (
-        <div className="flex h-screen w-full bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 text-white overflow-hidden font-sans selection:bg-primary/30">
+        <div className="flex h-screen w-full bg-gradient-to-br from-slate-800 via-slate-700 to-slate-800 text-white overflow-hidden font-sans selection:bg-primary/30">
 
             {/* Mobile Header */}
             <header className="md:hidden fixed top-0 left-0 right-0 z-50 bg-black/40 backdrop-blur-xl border-b border-white/10">
                 <div className="px-4 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <img src="/images/Logo.png" alt="UIReel" className="w-9 h-9 rounded-xl shadow-lg" />
+                        <img src="/images/Logo.png" alt="Viewterfy" className="w-9 h-9 rounded-xl shadow-lg" />
                         <div>
-                            <span className="font-bold text-base">UIReel</span>
+                            <span className="font-bold text-base">Viewterfy</span>
                             <p className="text-[10px] text-white/40">Your app in motion</p>
                         </div>
                     </div>
@@ -120,11 +142,11 @@ export const Layout = () => {
                 {/* Branding Header */}
                 <div className="p-5 border-b border-white/10 flex items-center gap-3 gradient-mesh">
                     <div className="relative">
-                        <img src="/images/Logo.png" alt="UIReel" className="w-11 h-11 rounded-xl shadow-lg" />
+                        <img src="/images/Logo.png" alt="Viewterfy" className="w-11 h-11 rounded-xl shadow-lg" />
                         <div className="absolute inset-0 rounded-xl ring-1 ring-white/20" />
                     </div>
                     <div>
-                        <h1 className="text-lg font-bold bg-gradient-to-r from-white to-white/80 bg-clip-text text-transparent">UIReel</h1>
+                        <h1 className="text-lg font-bold bg-gradient-to-r from-white to-white/80 bg-clip-text text-transparent">Viewterfy</h1>
                         <p className="text-[11px] text-white/50 font-medium">Your app, beautifully in motion</p>
                     </div>
                 </div>
@@ -158,7 +180,10 @@ export const Layout = () => {
                     style={lockedDimensions ? { width: lockedDimensions.width, height: lockedDimensions.height } : {}}
                 >
                     {/* Background - INSIDE canvas-stage */}
-                    <div className={clsx("absolute inset-0 transition-all duration-700", background)} />
+                    <div
+                        className="absolute inset-0 transition-all duration-700"
+                        style={getBackgroundStyle(activeScene)}
+                    />
 
                     {/* Scene Transition Container */}
                     <AnimatePresence mode="wait" initial={false}>

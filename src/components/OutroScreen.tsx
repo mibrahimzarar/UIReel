@@ -1,19 +1,22 @@
 import { motion } from 'framer-motion'
 import { useStore } from '../store/useStore'
 import { QrCode } from 'lucide-react'
+import { getBackgroundStyle } from './GenericBackgroundPicker'
 
 export const OutroScreen = () => {
     const { outroQrCode, scenes, aspectRatio } = useStore()
 
     // Use last scene background for continuity
     const lastScene = scenes[scenes.length - 1]
-    const background = lastScene?.background || "bg-[#0f1218]"
 
     const isVertical = aspectRatio === '9:16'
     const isSquare = aspectRatio === '1:1'
 
     return (
-        <div className={`w-full h-full flex flex-col items-center justify-center p-8 text-center relative overflow-hidden ${background}`}>
+        <div
+            className="w-full h-full flex flex-col items-center justify-center p-8 text-center relative overflow-hidden"
+            style={getBackgroundStyle(lastScene)}
+        >
             {/* Overlay for readability */}
             <div className="absolute inset-0 bg-black/40 pointer-events-none" />
 

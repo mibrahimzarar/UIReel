@@ -12,7 +12,12 @@ export interface Scene {
     subtitle: string
     // Per-Scene Settings
     phoneColor: PhoneColor
-    background: string
+    // Background
+    backgroundType: 'gradient' | 'solid' | 'pattern' | 'image'
+    backgroundColor: string
+    backgroundGradient: string
+    backgroundPattern: 'dots' | 'grid' | 'waves' | 'circles'
+    backgroundImage: string | null
     scrollSpeed: number
 }
 
@@ -33,7 +38,12 @@ interface AppState {
 
     // Per-Scene Setters (Proxy to Active Scene)
     setPhoneColor: (color: PhoneColor) => void
-    setBackground: (bg: string) => void
+    // Background Setters
+    setBackgroundType: (type: 'gradient' | 'solid' | 'pattern' | 'image') => void
+    setBackgroundColor: (color: string) => void
+    setBackgroundGradient: (gradient: string) => void
+    setBackgroundPattern: (pattern: 'dots' | 'grid' | 'waves' | 'circles') => void
+    setBackgroundImage: (image: string | null) => void
     setScrollSpeed: (speed: number) => void
 
     // Animation State (Global)
@@ -78,9 +88,11 @@ interface AppState {
 
     // Audio Settings
     audioFile: string | null
+    audioName: string | null
     audioVolume: number
     audioTrim: { start: number, end: number }
     setAudioFile: (file: string | null) => void
+    setAudioName: (name: string | null) => void
     setAudioVolume: (volume: number) => void
     setAudioTrim: (trim: { start: number, end: number }) => void
 }
@@ -93,7 +105,11 @@ export const useStore = create<AppState>((set) => ({
         headline: "Experience the Future",
         subtitle: "Seamless, elegant, and powerful.",
         phoneColor: 'black',
-        background: "bg-[radial-gradient(ellipse_at_top,_#1a1a2e_0%,_#16213e_50%,_#0f0f0f_100%)]",
+        backgroundType: 'gradient',
+        backgroundColor: '#1a1a2e',
+        backgroundGradient: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f0f 100%)',
+        backgroundPattern: 'dots',
+        backgroundImage: null,
         scrollSpeed: 20
     }],
     activeSceneId: 'default',
@@ -110,6 +126,7 @@ export const useStore = create<AppState>((set) => ({
 
     // Audio Initial State
     audioFile: null,
+    audioName: null,
     audioVolume: 0.5,
     audioTrim: { start: 0, end: 0 },
 
@@ -124,7 +141,11 @@ export const useStore = create<AppState>((set) => ({
                 headline: "New Scene",
                 subtitle: "Describe this scene...",
                 phoneColor: lastScene.phoneColor,
-                background: lastScene.background,
+                backgroundType: lastScene.backgroundType,
+                backgroundColor: lastScene.backgroundColor,
+                backgroundGradient: lastScene.backgroundGradient,
+                backgroundPattern: lastScene.backgroundPattern,
+                backgroundImage: lastScene.backgroundImage,
                 scrollSpeed: lastScene.scrollSpeed
             }],
             activeSceneId: newId
@@ -196,11 +217,25 @@ export const useStore = create<AppState>((set) => ({
         }
     }),
 
-    setBackground: (background) => set((state) => {
+    setBackgroundType: (type) => set((state) => {
         const targetId = state.activeSceneId === 'INTRO' ? state.scenes[0].id : state.activeSceneId === 'OUTRO' ? state.scenes[state.scenes.length - 1].id : state.activeSceneId
-        return {
-            scenes: state.scenes.map(s => s.id === targetId ? { ...s, background } : s)
-        }
+        return { scenes: state.scenes.map(s => s.id === targetId ? { ...s, backgroundType: type } : s) }
+    }),
+    setBackgroundColor: (color) => set((state) => {
+        const targetId = state.activeSceneId === 'INTRO' ? state.scenes[0].id : state.activeSceneId === 'OUTRO' ? state.scenes[state.scenes.length - 1].id : state.activeSceneId
+        return { scenes: state.scenes.map(s => s.id === targetId ? { ...s, backgroundColor: color } : s) }
+    }),
+    setBackgroundGradient: (gradient) => set((state) => {
+        const targetId = state.activeSceneId === 'INTRO' ? state.scenes[0].id : state.activeSceneId === 'OUTRO' ? state.scenes[state.scenes.length - 1].id : state.activeSceneId
+        return { scenes: state.scenes.map(s => s.id === targetId ? { ...s, backgroundGradient: gradient } : s) }
+    }),
+    setBackgroundPattern: (pattern) => set((state) => {
+        const targetId = state.activeSceneId === 'INTRO' ? state.scenes[0].id : state.activeSceneId === 'OUTRO' ? state.scenes[state.scenes.length - 1].id : state.activeSceneId
+        return { scenes: state.scenes.map(s => s.id === targetId ? { ...s, backgroundPattern: pattern } : s) }
+    }),
+    setBackgroundImage: (image) => set((state) => {
+        const targetId = state.activeSceneId === 'INTRO' ? state.scenes[0].id : state.activeSceneId === 'OUTRO' ? state.scenes[state.scenes.length - 1].id : state.activeSceneId
+        return { scenes: state.scenes.map(s => s.id === targetId ? { ...s, backgroundImage: image } : s) }
     }),
 
     setScrollSpeed: (scrollSpeed) => set((state) => {
@@ -247,6 +282,7 @@ export const useStore = create<AppState>((set) => ({
 
     // Audio Actions
     setAudioFile: (file) => set({ audioFile: file }),
+    setAudioName: (name) => set({ audioName: name }),
     setAudioVolume: (volume) => set({ audioVolume: volume }),
     setAudioTrim: (trim) => set({ audioTrim: trim }),
 }))
