@@ -11,7 +11,7 @@ interface ModeSwitcherProps {
 
 export const ModeSwitcher = ({ mode, onModeChange }: ModeSwitcherProps) => {
     return (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50">
+        <div className="fixed top-20 md:top-6 left-1/2 -translate-x-1/2 z-50">
             <div className="flex bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-1.5 shadow-2xl">
                 <button
                     onClick={() => onModeChange('video')}

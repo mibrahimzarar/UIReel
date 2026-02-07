@@ -39,7 +39,7 @@ export const BackgroundPicker = () => {
     }, [setBackgroundImage, setBackgroundType])
 
     const tabStyle = (active: boolean) => clsx(
-        "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200",
+        "flex-1 justify-center flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200",
         active
             ? "bg-white/20 text-white shadow-lg"
             : "text-white/60 hover:text-white/80 hover:bg-white/10"
@@ -48,7 +48,7 @@ export const BackgroundPicker = () => {
     return (
         <div className="space-y-4">
             {/* Background Type Tabs */}
-            <div className="flex gap-1 p-1 bg-white/5 rounded-xl">
+            <div className="grid grid-cols-2 gap-2">
                 <button onClick={() => setBackgroundType('gradient')} className={tabStyle(backgroundType === 'gradient')}>
                     <Palette size={14} /> Gradient
                 </button>

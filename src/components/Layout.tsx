@@ -158,7 +158,7 @@ export const Layout = () => {
             </aside>
 
             {/* Main Stage Area */}
-            <main className="flex-1 relative flex items-center justify-center bg-gradient-to-br from-slate-800 via-slate-700 to-slate-800 pt-16 md:pt-0">
+            <main className="flex-1 relative flex items-center justify-center bg-gradient-to-br from-slate-800 via-slate-700 to-slate-800 pt-36 md:pt-0">
 
                 {/* Ambient Background Glow - Elegant Light Colors */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -174,8 +174,8 @@ export const Layout = () => {
                         "relative shadow-2xl transition-all duration-500 ease-in-out overflow-hidden gradient-border",
                         aspectRatio === '1:1' ? "rounded-2xl md:rounded-3xl" : "rounded-[1.5rem] md:rounded-[2.5rem]",
                         !lockedDimensions && (aspectRatio === '1:1'
-                            ? "aspect-square w-[85%] md:w-auto md:h-[88%] max-w-[400px] md:max-w-none md:max-h-[800px]"
-                            : "aspect-[9/16] w-[65%] md:w-auto md:h-[92%] max-w-[280px] md:max-w-none")
+                            ? "aspect-square w-[92%] md:w-auto md:h-[88%] max-w-[400px] md:max-w-none md:max-h-[800px]"
+                            : "aspect-[9/16] h-[70vh] md:h-[92%] w-auto md:w-auto max-w-[90vw] md:max-w-none")
                     )}
                     style={lockedDimensions ? { width: lockedDimensions.width, height: lockedDimensions.height } : {}}
                 >
@@ -297,16 +297,7 @@ export const Layout = () => {
                 </div>
 
                 {/* Mobile: Quick Action FAB */}
-                <button
-                    onClick={() => setSidebarOpen(true)}
-                    className="md:hidden fixed bottom-6 right-6 z-30 bg-gradient-to-r from-primary to-blue-400 text-white font-semibold rounded-full p-4 shadow-xl shadow-primary/30 active:scale-95 transition-transform"
-                    aria-label="Open settings"
-                >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                </button>
+
             </main >
         </div >
     )

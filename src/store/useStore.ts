@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { PRESET_GRADIENTS } from './useFeatureGraphicStore'
 
 export type PhoneColor = 'black' | 'silver' | 'gold' | 'blue'
 export type AspectRatio = '1:1' | '9:16'
@@ -107,7 +108,7 @@ export const useStore = create<AppState>((set) => ({
         phoneColor: 'black',
         backgroundType: 'gradient',
         backgroundColor: '#1a1a2e',
-        backgroundGradient: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f0f 100%)',
+        backgroundGradient: PRESET_GRADIENTS[PRESET_GRADIENTS.length - 1].value,
         backgroundPattern: 'dots',
         backgroundImage: null,
         scrollSpeed: 20

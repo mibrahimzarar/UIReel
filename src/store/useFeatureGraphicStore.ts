@@ -93,7 +93,7 @@ const initialState = {
     deviceColor: 'black' as DeviceColor,
     backgroundType: 'gradient' as BackgroundType,
     backgroundColor: '#1a1a2e',
-    backgroundGradient: PRESET_GRADIENTS[0].value,
+    backgroundGradient: PRESET_GRADIENTS[PRESET_GRADIENTS.length - 1].value,
     backgroundPattern: 'dots' as PatternType,
     backgroundImage: null,
     headline: '',
